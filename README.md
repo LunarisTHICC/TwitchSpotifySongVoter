@@ -1,4 +1,4 @@
-# TwitchSpotifySongVoter
+Readme
 A simple way to let your Twitch chat vote on the next Spotify track, show a clean dark-themed web page with the current song and queue, and give the streamer a host controller window to manage the queue (including a subtle “−” button to remove queued songs).
 
 Overview
@@ -30,14 +30,18 @@ Tip: If you’ve never used developer dashboards, don’t worry. Just look for �
 	Setup in 10 minutes
 	1. 	Install Python packages
 • 	Open Command Prompt and run:
+
 pip install -r requirements.txt
-	1. 	If you don’t have , create it with
+
+	1. 	If you don’t have , create it with:
+	
 fastapi
 uvicorn
 aiohttp
 twitchio
 Pillow
 python-dotenv
+
 	2. 	Create your environment file
 • 	Copy  to  and fill in the values:
 
@@ -79,7 +83,7 @@ python main.py
 
 • 	This spawns server, bot, and host GUI in one shot (if you’re using the provided ).
 
-	Using it
+Using it
 • 	In Twitch chat:
 • 	Command: !interactive
 • 	Bot replies with the voting link (the web page).
@@ -98,7 +102,7 @@ python main.py
 • 	When it ends, the next queued item auto‑plays.
 • 	The UI and GUI update live via WebSockets.
 
-	Troubleshooting and tips
+Troubleshooting and tips
 • 	If the web page doesn’t load:
 • 	Confirm the server window shows “Server running on http://localhost:3000”.
 • 	Some systems auto‑select a nearby port (3001, 3002, …). Check the server window for the actual port and update the link accordingly.
