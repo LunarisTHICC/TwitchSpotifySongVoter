@@ -1,5 +1,4 @@
 # TwitchSpotifySongVoter
-Readme
 A simple way to let your Twitch chat vote on the next Spotify track, show a clean dark-themed web page with the current song and queue, and give the streamer a host controller window to manage the queue (including a subtle “−” button to remove queued songs).
 
 Overview
