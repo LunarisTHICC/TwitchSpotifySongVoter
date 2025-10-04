@@ -30,18 +30,14 @@ Tip: If you’ve never used developer dashboards, don’t worry. Just look for �
 	Setup in 10 minutes
 	1. 	Install Python packages
 • 	Open Command Prompt and run:
-
 pip install -r requirements.txt
-
-	1. 	If you don’t have , create it with:
-	
+	1. 	If you don’t have , create it with
 fastapi
 uvicorn
 aiohttp
 twitchio
 Pillow
 python-dotenv
-
 	2. 	Create your environment file
 • 	Copy  to  and fill in the values:
 
