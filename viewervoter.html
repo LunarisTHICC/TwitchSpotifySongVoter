@@ -1,0 +1,170 @@
+<!-- static/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Interactive Voting</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <style>
+    :root { --bg:#121212; --panel:#1a1a1a; --muted:#b3b3b3; --text:#fff; --accent:#9146FF; --accent2:#7a3cf0; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif}
+    .container{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px}
+    header, .sidebar, .main{background:var(--panel);border:1px solid #252525;border-radius:12px}
+    header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:12px 16px}
+    .section{padding:16px}
+    .section-title{color:var(--accent);font-weight:700;margin-bottom:12px}
+    .card{display:grid;grid-template-columns:88px 1fr auto;gap:12px;background:#161616;border:1px solid #262626;border-radius:10px;padding:12px}
+    .cover{width:88px;height:88px;border-radius:8px;object-fit:cover;border:1px solid #303030}
+    .title{font-weight:700}.artist{color:var(--muted)}
+    .pill{background:#22123f;color:var(--accent);border:1px solid #3b2471;border-radius:999px;padding:4px 10px;font-size:12px}
+    .queue-list,.results{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow:auto;padding:0 16px 16px}
+    .mini{display:grid;grid-template-columns:48px 1fr auto;gap:10px;background:#141414;border:1px solid #262626;border-radius:8px;padding:8px}
+    .mini .cover{width:48px;height:48px;border-radius:6px}
+    .vote-input{display:grid;grid-template-columns:1fr auto;gap:8px}
+    input{background:#161616;border:1px solid #333;color:#fff;padding:10px 12px;border-radius:8px}
+    input::placeholder{color:#808080}
+    button{background:var(--accent);border:none;color:#fff;font-weight:700;padding:10px 16px;border-radius:8px;cursor:pointer}
+    button:hover{background:var(--accent2)}
+    .dmca{font-size:.85em;color:var(--muted)}
+    .dmca::before{content:'ⓘ ';margin-right:2px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="section">
+      <div>
+        <div style="font-weight:800">Interactive Voting UI</div>
+        <div style="font-size:12px;color:#b3b3b3">Dark theme • Twitch accent • Live updates</div>
+      </div>
+      <div>
+        <span id="enabled-label" style="color:#b3b3b3;margin-right:8px">Enabled</span>
+        <button id="toggle">Toggle</button>
+      </div>
+    </header>
+
+    <aside class="sidebar section">
+      <div class="section-title">Currently playing</div>
+      <div id="current" class="card">
+        <img id="c_cover" class="cover" src="" alt="cover" />
+        <div>
+          <div id="c_title" class="title">—</div>
+          <div id="c_artist" class="artist">—</div>
+          <div id="c_dmca" class="dmca">DMCA Approved</div>
+        </div>
+        <div id="c_dur" class="pill">—:—</div>
+      </div>
+
+      <div class="section-title" style="margin-top:16px">In queue</div>
+      <div id="queue" class="queue-list"></div>
+    </aside>
+
+    <main class="main section">
+      <div class="section-title">Vote next</div>
+      <div class="vote-input">
+        <input id="query" placeholder="Type song / artist / album / playlist" />
+        <button id="submit">Submit</button>
+      </div>
+
+      <div class="section-title" style="margin-top:16px">Live requests</div>
+      <div id="results" class="results"></div>
+    </main>
+  </div>
+
+  <script>
+    const API = {
+      state: '/api/state',
+      vote: '/api/vote',
+      toggle: '/api/toggle',
+      results: '/api/results',
+      ws: (origin) => `${origin.replace(/^http/,'ws')}/ws/v1`
+    };
+
+    const el = (id) => document.getElementById(id);
+    const msToMinSec = (ms) => {
+      if (!ms) return '—:—';
+      const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+      return `${m}:${String(s).padStart(2,'0')}`;
+    };
+
+    function renderCurrent(cur) {
+      el('c_title').textContent = cur?.title || '—';
+      el('c_artist').textContent = cur?.artist || '—';
+      el('c_dur').textContent = msToMinSec(cur?.duration_ms);
+      el('c_cover').src = cur?.cover || '';
+      el('c_dmca').textContent = cur?.dmca === 'approved' ? 'DMCA Approved' :
+                                 cur?.dmca === 'warn' ? 'DMCA Review' : 'DMCA Denied';
+    }
+
+    function renderQueue(items) {
+      const box = el('queue'); box.innerHTML = '';
+      (items || []).forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'mini';
+        row.innerHTML = `
+          <img class="cover" src="${item.cover || ''}" />
+          <div>
+            <div class="title">${item.title || '—'}</div>
+            <div class="artist">${item.artist || ''}</div>
+          </div>
+          <div class="pill">Queued</div>`;
+        box.appendChild(row);
+      });
+    }
+
+    function renderResults(items) {
+      const box = el('results'); box.innerHTML = '';
+      (items || []).forEach(it => {
+        const row = document.createElement('div');
+        row.className = 'mini';
+        row.innerHTML = `
+          <img class="cover" src="${it.cover || ''}" />
+          <div>
+            <div class="title">${it.title || it.query || '—'}</div>
+            <div class="artist">${it.artist || ''}</div>
+          </div>
+          <div class="pill">${(it.votes||1)} vote${(it.votes||1)>1?'s':''}</div>`;
+        box.appendChild(row);
+      });
+    }
+
+    // REST actions
+    el('toggle').onclick = async () => {
+      const s = await fetch(API.state).then(r=>r.json());
+      const next = !s.enabled;
+      await fetch(API.toggle, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({enabled: next}) });
+      el('enabled-label').textContent = next ? 'Enabled' : 'Disabled';
+    };
+
+    el('submit').onclick = async () => {
+      const q = el('query').value.trim(); el('query').value = '';
+      if (!q) return;
+      await fetch(API.vote, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query: q}) });
+    };
+
+    // Initial fetch + websocket
+    (async () => {
+      try {
+        const s = await fetch(API.state).then(r=>r.json());
+        el('enabled-label').textContent = s.enabled ? 'Enabled' : 'Disabled';
+        renderCurrent(s.current); renderQueue(s.queue);
+        const rs = await fetch(API.results).then(r=>r.json());
+        renderResults(rs.items);
+      } catch {}
+      const ws = new WebSocket(API.ws(location.origin), 'interactive-v1');
+      ws.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'state') {
+          el('enabled-label').textContent = msg.enabled ? 'Enabled' : 'Disabled';
+          renderCurrent(msg.current); renderQueue(msg.queue);
+        } else if (msg.type === 'results') {
+          renderResults(msg.items);
+        }
+      };
+      ws.onopen = () => ws.send('ping');
+      setInterval(()=> ws.readyState===1 && ws.send('ping'), 5000);
+    })();
+  </script>
+</body>
+</html>
